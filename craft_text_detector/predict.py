@@ -18,7 +18,9 @@ def get_prediction(
     low_text: float = 0.4,
     cuda: bool = False,
     long_size: int = 1280,
-    poly: bool = True,
+    output_polygons: bool = False,
+    output_bboxes: bool = False,
+    output_heatmaps: bool = False,
 ):
     """
     Arguments:
@@ -32,13 +34,16 @@ def get_prediction(
         cuda: Use cuda for inference
         canvas_size: image size for inference
         long_size: desired longest image size for inference
-        poly: enable polygon type
+        output_heatmaps: whether to draw heatmaps
+        output_bboxes: whether to draw heatmaps
+    output_polygons: whether boxes are polygons
     Output:
         {"masks": lists of predicted masks 2d as bool array,
          "boxes": list of coords of points of predicted boxes,
          "boxes_as_ratios": list of coords of points of predicted boxes as ratios of image size,
          "polys_as_ratios": list of coords of points of predicted polys as ratios of image size,
          "heatmaps": visualizations of the detected characters/links,
+         "scores": Text and link score maps
          "times": elapsed times of the sub modules, in seconds}
     """
     t0 = time.time()
@@ -81,36 +86,50 @@ def get_prediction(
     refinenet_time = time.time() - t0
     t0 = time.time()
 
-    # Post-processing
-    boxes, polys = craft_utils.getDetBoxes(
-        score_text, score_link, text_threshold, link_threshold, low_text, poly
-    )
-
-    # coordinate adjustment
-    boxes = craft_utils.adjustResultCoordinates(boxes, ratio_w, ratio_h)
-    polys = craft_utils.adjustResultCoordinates(polys, ratio_w, ratio_h)
-    for k in range(len(polys)):
-        if polys[k] is None:
-            polys[k] = boxes[k]
-
     # get image size
     img_height = image.shape[0]
     img_width = image.shape[1]
 
-    # calculate box coords as ratios to image size
-    boxes_as_ratio = []
-    for box in boxes:
-        boxes_as_ratio.append(box / [img_width, img_height])
-    boxes_as_ratio = np.array(boxes_as_ratio)
+    # coordinate adjustment
+    if output_bboxes:
+        # Post-processing
+        boxes, polys = craft_utils.getDetBoxes(
+            score_text,
+            score_link,
+            text_threshold,
+            link_threshold,
+            low_text,
+            output_polygons
+        )
+        boxes = craft_utils.adjustResultCoordinates(boxes, ratio_w, ratio_h)
+        polys = craft_utils.adjustResultCoordinates(polys, ratio_w, ratio_h)
+        for k in range(len(polys)):
+            if polys[k] is None:
+                polys[k] = boxes[k]
 
-    # calculate poly coords as ratios to image size
-    polys_as_ratio = []
-    for poly in polys:
-        polys_as_ratio.append(poly / [img_width, img_height])
-    polys_as_ratio = np.array(polys_as_ratio)
+        # calculate box coords as ratios to image size
+        boxes_as_ratio = []
+        for box in boxes:
+            boxes_as_ratio.append(box / [img_width, img_height])
+        boxes_as_ratio = np.array(boxes_as_ratio)
 
-    text_score_heatmap = image_utils.cvt2HeatmapImg(score_text)
-    link_score_heatmap = image_utils.cvt2HeatmapImg(score_link)
+        # calculate poly coords as ratios to image size
+        polys_as_ratio = []
+        for poly in polys:
+            polys_as_ratio.append(poly / [img_width, img_height])
+        polys_as_ratio = np.array(polys_as_ratio)
+    else:
+        boxes = None
+        polys = None
+        boxes_as_ratio = None
+        polys_as_ratio = None
+
+    if output_heatmaps:
+        text_score_heatmap = image_utils.cvt2HeatmapImg(score_text)
+        link_score_heatmap = image_utils.cvt2HeatmapImg(score_link)
+    else:
+        text_score_heatmap = None
+        link_score_heatmap = None
 
     postprocess_time = time.time() - t0
 
@@ -127,6 +146,10 @@ def get_prediction(
         "boxes_as_ratios": boxes_as_ratio,
         "polys": polys,
         "polys_as_ratios": polys_as_ratio,
+        "scores": {
+            "text_score": score_text,
+            "link_score": score_link,
+        },
         "heatmaps": {
             "text_score_heatmap": text_score_heatmap,
             "link_score_heatmap": link_score_heatmap,

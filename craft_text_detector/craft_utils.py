@@ -62,7 +62,7 @@ def load_craftnet_model(
     if not os.path.isfile(weight_path):
         print("Craft text detector weight will be downloaded to {}".format(weight_path))
 
-        gdown.cached_download(url)
+        weight_path = gdown.cached_download(url)
 
     # arange device
     if cuda:
@@ -106,7 +106,7 @@ def load_refinenet_model(
     if not os.path.isfile(weight_path):
         print("Craft text refiner weight will be downloaded to {}".format(weight_path))
 
-        gdown.cached_download(url)
+        weight_path = gdown.cached_download(url)
 
     # arange device
     if cuda:

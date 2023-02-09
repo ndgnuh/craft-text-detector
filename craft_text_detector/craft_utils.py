@@ -4,6 +4,7 @@ from collections import OrderedDict
 from pathlib import Path
 from typing import Optional, Union
 
+import gdown
 import cv2
 import numpy as np
 
@@ -61,7 +62,7 @@ def load_craftnet_model(
     if not os.path.isfile(weight_path):
         print("Craft text detector weight will be downloaded to {}".format(weight_path))
 
-        file_utils.download(url=url, save_path=weight_path)
+        gdown.cached_download(url)
 
     # arange device
     if cuda:
@@ -105,11 +106,12 @@ def load_refinenet_model(
     if not os.path.isfile(weight_path):
         print("Craft text refiner weight will be downloaded to {}".format(weight_path))
 
-        file_utils.download(url=url, save_path=weight_path)
+        gdown.cached_download(url)
 
     # arange device
     if cuda:
-        refine_net.load_state_dict(copyStateDict(torch_utils.load(weight_path)))
+        refine_net.load_state_dict(
+            copyStateDict(torch_utils.load(weight_path)))
 
         refine_net = refine_net.cuda()
         refine_net = torch_utils.DataParallel(refine_net)
@@ -159,7 +161,8 @@ def getDetBoxes_core(textmap, linkmap, text_threshold, link_threshold, low_text)
         x, y = stats[k, cv2.CC_STAT_LEFT], stats[k, cv2.CC_STAT_TOP]
         w, h = stats[k, cv2.CC_STAT_WIDTH], stats[k, cv2.CC_STAT_HEIGHT]
         niter = int(math.sqrt(size * min(w, h) / (w * h)) * 2)
-        sx, ex, sy, ey = (x - niter, x + w + niter + 1, y - niter, y + h + niter + 1)
+        sx, ex, sy, ey = (x - niter, x + w + niter + 1,
+                          y - niter, y + h + niter + 1)
         # boundary check
         if sx < 0:
             sx = 0
@@ -169,7 +172,8 @@ def getDetBoxes_core(textmap, linkmap, text_threshold, link_threshold, low_text)
             ex = img_w
         if ey >= img_h:
             ey = img_h
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1 + niter, 1 + niter))
+        kernel = cv2.getStructuringElement(
+            cv2.MORPH_RECT, (1 + niter, 1 + niter))
         segmap[sy:ey, sx:ex] = cv2.dilate(segmap[sy:ey, sx:ex], kernel)
 
         # make box
@@ -178,7 +182,7 @@ def getDetBoxes_core(textmap, linkmap, text_threshold, link_threshold, low_text)
         rectangle = cv2.minAreaRect(np_contours)
         box = cv2.boxPoints(rectangle)
 
-        # boundary check due to minAreaRect may have out of range values 
+        # boundary check due to minAreaRect may have out of range values
         # (see https://docs.opencv.org/3.4/d3/dc0/group__imgproc__shape.html#ga3d476a3417130ae5154aea421ca7ead9)
         for p in box:
             if p[0] < 0:
@@ -231,7 +235,8 @@ def getPoly_core(boxes, labels, mapper, linkmap):
         # warp image
         tar = np.float32([[0, 0], [w, 0], [w, h], [0, h]])
         M = cv2.getPerspectiveTransform(box, tar)
-        word_label = cv2.warpPerspective(labels, M, (w, h), flags=cv2.INTER_NEAREST)
+        word_label = cv2.warpPerspective(
+            labels, M, (w, h), flags=cv2.INTER_NEAREST)
         try:
             Minv = np.linalg.inv(M)
         except:
@@ -305,7 +310,8 @@ def getPoly_core(boxes, labels, mapper, linkmap):
 
         # processing last segment
         if num_sec != 0:
-            cp_section[-1] = [cp_section[-1][0] / num_sec, cp_section[-1][1] / num_sec]
+            cp_section[-1] = [cp_section[-1][0] /
+                              num_sec, cp_section[-1][1] / num_sec]
 
         # pass if num of pivots is not sufficient or segment widh
         # is smaller than character height

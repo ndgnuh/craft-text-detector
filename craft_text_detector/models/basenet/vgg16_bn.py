@@ -4,7 +4,6 @@ import torch
 import torch.nn as nn
 import torch.nn.init as init
 from torchvision import models
-from torchvision.models.vgg import model_urls
 
 
 def init_weights(modules):
@@ -24,8 +23,8 @@ def init_weights(modules):
 class vgg16_bn(torch.nn.Module):
     def __init__(self, pretrained=True, freeze=True):
         super(vgg16_bn, self).__init__()
-        model_urls["vgg16_bn"] = model_urls["vgg16_bn"].replace("https://", "http://")
-        vgg_pretrained_features = models.vgg16_bn(pretrained=pretrained).features
+        vgg_pretrained_features = models.vgg16_bn(
+            pretrained=pretrained).features
         self.slice1 = torch.nn.Sequential()
         self.slice2 = torch.nn.Sequential()
         self.slice3 = torch.nn.Sequential()
@@ -53,7 +52,8 @@ class vgg16_bn(torch.nn.Module):
             init_weights(self.slice3.modules())
             init_weights(self.slice4.modules())
 
-        init_weights(self.slice5.modules())  # no pretrained model for fc6 and fc7
+        # no pretrained model for fc6 and fc7
+        init_weights(self.slice5.modules())
 
         if freeze:
             for param in self.slice1.parameters():  # only first conv
